@@ -102,12 +102,16 @@ class RuleEngine(RecommendationEngine):
         if not tops or not bottoms:
             return []
 
-        # Score all (top, bottom) pairs
+        # Optional slots: cap to top 5 by score; use [None] if category absent
+        outers = by_category.get(CategoryEnum.outerwear.value, [])[:5] or [None]
+        shoes = by_category.get(CategoryEnum.shoes.value, [])[:5] or [None]
+
+        # Score all combinations
         scored_pairs = []
-        for top, bottom in itertools.product(tops, bottoms):
-            outfit_items = [top, bottom]
+        for top, bottom, outer, shoe in itertools.product(tops, bottoms, outers, shoes):
+            outfit_items = [i for i in [top, bottom, outer, shoe] if i is not None]
             cohesion = _style_cohesion(outfit_items)
-            avg_item_score = (scored[top] + scored[bottom]) / 2.0
+            avg_item_score = sum(scored[i] for i in outfit_items) / len(outfit_items)
             pair_score = avg_item_score + cohesion * 0.10
             scored_pairs.append((outfit_items, pair_score, cohesion))
 
@@ -128,3 +132,46 @@ class RuleEngine(RecommendationEngine):
             )
 
         return suggestions
+
+    def match_item(self, user_id: int, item_id: int) -> list[dict]:
+        """Return best-matching items from other categories for a given item."""
+        target: ClothingItem | None = (
+            self.db.query(ClothingItem)
+            .filter(
+                ClothingItem.id == item_id,
+                ClothingItem.user_id == user_id,
+                ClothingItem.active == True,
+            )
+            .first()
+        )
+        if target is None:
+            return []
+
+        season = _current_season()
+        others = (
+            self.db.query(ClothingItem)
+            .filter(
+                ClothingItem.user_id == user_id,
+                ClothingItem.active == True,
+                ClothingItem.id != item_id,
+                ClothingItem.category != target.category,
+            )
+            .all()
+        )
+
+        scored = []
+        for item in others:
+            score = _score_item(item, season) + _style_cohesion([target, item]) * 0.10
+            scored.append((item, score))
+
+        scored.sort(key=lambda x: x[1], reverse=True)
+
+        by_cat: dict[str, list[ClothingItem]] = {}
+        for item, _ in scored:
+            cat = item.category.value
+            if cat not in by_cat:
+                by_cat[cat] = []
+            if len(by_cat[cat]) < 3:
+                by_cat[cat].append(item)
+
+        return [{"category": cat, "items": items} for cat, items in by_cat.items()]

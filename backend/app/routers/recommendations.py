@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from ..core.database import get_db
@@ -39,3 +39,22 @@ def suggest_outfits(
             "items": [ClothingItemRead.model_validate(i) for i in items],
         })
     return enriched
+
+
+@router.get("/match/{item_id}")
+def get_item_matches(item_id: int, current_user: CurrentUser, db: DB):
+    engine = RuleEngine(db)
+    result = engine.match_item(current_user.id, item_id)
+    if result == [] and not db.query(ClothingItem).filter(
+        ClothingItem.id == item_id,
+        ClothingItem.user_id == current_user.id,
+        ClothingItem.active == True,
+    ).first():
+        raise HTTPException(status_code=404, detail="Item not found")
+    return [
+        {
+            "category": r["category"],
+            "items": [ClothingItemRead.model_validate(i) for i in r["items"]],
+        }
+        for r in result
+    ]

@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { getItem, updateItem, deleteItem, uploadImage } from '../api/items'
 import { logWear } from '../api/wearLogs'
+import { getItemMatches } from '../api/recommendations'
 
 const SEASONS = ['spring', 'summer', 'fall', 'winter']
+const CATEGORY_EMOJI = { top: '👕', bottom: '👖', outerwear: '🧥', shoes: '👟', accessory: '👜', dress: '👗', other: '🧺' }
 
 export default function ItemDetail() {
   const { id } = useParams()
@@ -16,6 +18,7 @@ export default function ItemDetail() {
   const [logging, setLogging] = useState(false)
   const [loggedToday, setLoggedToday] = useState(false)
   const [error, setError] = useState(null)
+  const [matches, setMatches] = useState([])
 
   useEffect(() => {
     getItem(id)
@@ -31,6 +34,10 @@ export default function ItemDetail() {
       })
       .catch(() => setError('Item not found.'))
       .finally(() => setLoading(false))
+
+    getItemMatches(id)
+      .then((res) => setMatches(res.data))
+      .catch(() => {})
   }, [id])
 
   const handleSave = async () => {
@@ -217,6 +224,30 @@ export default function ItemDetail() {
           )}
         </div>
       </div>
+
+      {matches.length > 0 && (
+        <div className="matches-section">
+          <h2 className="matches-title">Goes well with</h2>
+          {matches.map(({ category, items: matchItems }) => (
+            <div key={category} className="matches-group">
+              <h3 className="matches-category">
+                {CATEGORY_EMOJI[category] || '👔'} {category}
+              </h3>
+              <div className="matches-row">
+                {matchItems.map((mi) => (
+                  <Link to={`/wardrobe/${mi.id}`} key={mi.id} className="match-thumb">
+                    {mi.image_path
+                      ? <img src={mi.image_path} alt={mi.name} />
+                      : <span className="match-emoji">{CATEGORY_EMOJI[mi.category] || '👔'}</span>
+                    }
+                    <span className="match-label">{mi.name}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
