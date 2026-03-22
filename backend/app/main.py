@@ -17,8 +17,8 @@ settings = get_settings()
 async def lifespan(app: FastAPI):
     # Ensure upload directory exists
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
-    # Create all tables (dev convenience — Alembic handles prod migrations)
-    Base.metadata.create_all(bind=engine)
+    # Create all tables — checkfirst=True skips tables that already exist
+    Base.metadata.create_all(bind=engine, checkfirst=True)
     yield
 
 
