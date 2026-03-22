@@ -8,6 +8,7 @@ Scoring formula (from SPEC):
     + (style_cohesion × 0.10)    # items in outfit share style_tags
 """
 
+import itertools
 from datetime import date, timedelta
 from sqlalchemy.orm import Session
 
@@ -95,26 +96,29 @@ class RuleEngine(RecommendationEngine):
         for cat in by_category:
             by_category[cat].sort(key=lambda i: scored[i], reverse=True)
 
-        suggestions = []
-        for _ in range(limit):
-            outfit_items = []
-            for slot in _OUTFIT_SLOTS:
-                bucket = by_category.get(slot.value, [])
-                if bucket:
-                    outfit_items.append(bucket[0])
-                    bucket.pop(0)  # don't reuse in next suggestion
+        tops = by_category.get(CategoryEnum.top.value, [])
+        bottoms = by_category.get(CategoryEnum.bottom.value, [])
 
-            if len(outfit_items) < len(_OUTFIT_SLOTS):
-                break  # not enough items for a complete outfit
+        if not tops or not bottoms:
+            return []
 
+        # Score all (top, bottom) pairs
+        scored_pairs = []
+        for top, bottom in itertools.product(tops, bottoms):
+            outfit_items = [top, bottom]
             cohesion = _style_cohesion(outfit_items)
-            total_score = sum(scored[i] for i in outfit_items) / len(outfit_items)
-            total_score += cohesion * 0.10
+            avg_item_score = (scored[top] + scored[bottom]) / 2.0
+            pair_score = avg_item_score + cohesion * 0.10
+            scored_pairs.append((outfit_items, pair_score, cohesion))
 
+        scored_pairs.sort(key=lambda x: x[1], reverse=True)
+
+        suggestions = []
+        for outfit_items, pair_score, cohesion in scored_pairs[:limit]:
             suggestions.append(
                 {
                     "item_ids": [i.id for i in outfit_items],
-                    "score": round(total_score, 3),
+                    "score": round(pair_score, 3),
                     "rationale": (
                         f"Selected for season={season}, "
                         f"style cohesion={cohesion:.2f}, "

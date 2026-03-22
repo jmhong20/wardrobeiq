@@ -20,7 +20,7 @@ DB = Annotated[Session, Depends(get_db)]
 def suggest_outfits(
     current_user: CurrentUser,
     db: DB,
-    limit: int = Query(default=5, le=20),
+    limit: int = Query(default=5, le=50),
     season: str | None = Query(default=None),
 ):
     engine = RuleEngine(db)

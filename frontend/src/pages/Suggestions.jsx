@@ -13,13 +13,15 @@ export default function Suggestions() {
   const [season, setSeason] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [visibleCount, setVisibleCount] = useState(10)
 
   const fetchSuggestions = (s = season) => {
     setLoading(true)
     setError(null)
     setDismissed(new Set())
     setAccepted(new Set())
-    getSuggestions(8, s)
+    setVisibleCount(10)
+    getSuggestions(50, s)
       .then((res) => setSuggestions(res.data))
       .catch((err) => setError(err.response?.data?.detail || err.message))
       .finally(() => setLoading(false))
@@ -51,6 +53,8 @@ export default function Suggestions() {
   const visible = suggestions.filter(
     (s) => !dismissed.has(s.item_ids.join(','))
   )
+  const displayed = visible.slice(0, visibleCount)
+  const hasMore = visible.length > visibleCount
 
   return (
     <div className="page">
@@ -87,7 +91,7 @@ export default function Suggestions() {
       )}
 
       <div className="suggestions-grid">
-        {visible.map((s) => {
+        {displayed.map((s) => {
           const key = s.item_ids.join(',')
           return (
             <OutfitCard
@@ -100,6 +104,17 @@ export default function Suggestions() {
           )
         })}
       </div>
+
+      {hasMore && (
+        <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
+          <button
+            className="btn-ghost"
+            onClick={() => setVisibleCount((c) => c + 10)}
+          >
+            Show more ({visible.length - visibleCount} remaining)
+          </button>
+        </div>
+      )}
     </div>
   )
 }
