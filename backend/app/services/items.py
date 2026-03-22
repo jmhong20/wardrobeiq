@@ -2,7 +2,7 @@ import os
 import uuid
 
 from fastapi import HTTPException, UploadFile, status
-from PIL import Image
+from PIL import Image, ImageOps
 from sqlalchemy.orm import Session
 
 from ..core.config import get_settings
@@ -20,6 +20,7 @@ def _save_image(file: UploadFile, user_id: int) -> str:
     dest = os.path.join(user_dir, filename)
 
     img = Image.open(file.file)
+    img = ImageOps.exif_transpose(img)
     img = img.convert("RGB")
     img.thumbnail((settings.MAX_IMAGE_SIZE_PX, settings.MAX_IMAGE_SIZE_PX))
     img.save(dest, "JPEG", quality=85)
