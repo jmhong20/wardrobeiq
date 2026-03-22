@@ -1,6 +1,9 @@
 import os
 from contextlib import asynccontextmanager
 
+from pillow_heif import register_heif_opener
+register_heif_opener()  # enables Pillow to open HEIC/HEIF images from iPhone
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -31,9 +34,12 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+_raw_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000")
+_allowed_origins = [o.strip() for o in _raw_origins.split(",")]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=_allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
