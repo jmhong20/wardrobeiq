@@ -1,0 +1,14 @@
+# On your Ubuntu server
+git clone <your-repo> wardrobeiq
+cd wardrobeiq
+
+# Set up env files
+cp backend/.env.prod.example backend/.env
+# Edit backend/.env — set a real SECRET_KEY and DB password
+
+# Create data directories
+sudo mkdir -p /srv/wardrobeiq/uploads /srv/wardrobeiq/db
+
+# Deploy
+MYSQL_ROOT_PASSWORD=rootpw MYSQL_PASSWORD=dbpw docker compose -f docker-compose.prod.yml up -d --build
+
