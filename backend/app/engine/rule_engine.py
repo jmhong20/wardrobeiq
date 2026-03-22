@@ -58,13 +58,18 @@ def _score_item(item: ClothingItem, season: str) -> float:
     return fav * 0.4 + recency * 0.35 + season * 0.15 + 0.5 * 0.10
 
 
-def _style_cohesion(items: list[ClothingItem]) -> float:
-    all_tags = [set(i.style_tags or []) for i in items]
-    if not all_tags or len(all_tags) < 2:
+def _jaccard(tag_sets: list[set]) -> float:
+    if len(tag_sets) < 2:
         return 0.5
-    shared = all_tags[0].intersection(*all_tags[1:])
-    union = all_tags[0].union(*all_tags[1:])
+    shared = tag_sets[0].intersection(*tag_sets[1:])
+    union = tag_sets[0].union(*tag_sets[1:])
     return len(shared) / len(union) if union else 0.5
+
+
+def _style_cohesion(items: list[ClothingItem]) -> float:
+    style_score = _jaccard([set(i.style_tags or []) for i in items])
+    color_score = _jaccard([set(i.color_tags or []) for i in items])
+    return style_score * 0.6 + color_score * 0.4
 
 
 class RuleEngine(RecommendationEngine):
