@@ -58,6 +58,12 @@ def _score_item(item: ClothingItem, season: str) -> float:
     return fav * 0.4 + recency * 0.35 + season * 0.15 + 0.5 * 0.10
 
 
+_NEUTRAL_COLORS = {
+    "black", "white", "gray", "grey", "beige", "khaki", "tan",
+    "cream", "navy", "brown", "nude", "camel", "ivory", "charcoal",
+}
+
+
 def _jaccard(tag_sets: list[set]) -> float:
     if len(tag_sets) < 2:
         return 0.5
@@ -66,10 +72,40 @@ def _jaccard(tag_sets: list[set]) -> float:
     return len(shared) / len(union) if union else 0.5
 
 
+def _color_sandwich_score(items: list[ClothingItem]) -> float:
+    """Sandwich Method: top/outerwear color matches shoes; bottom is a neutral."""
+    by_cat = {i.category: i for i in items}
+
+    top_layer = by_cat.get(CategoryEnum.outerwear) or by_cat.get(CategoryEnum.top)
+    bottom_layer = by_cat.get(CategoryEnum.bottom)
+    shoe_layer = by_cat.get(CategoryEnum.shoes)
+
+    components: list[float] = []
+
+    # Top ↔ Shoes color match
+    if top_layer and shoe_layer:
+        top_colors = {c.lower() for c in (top_layer.color_tags or [])}
+        shoe_colors = {c.lower() for c in (shoe_layer.color_tags or [])}
+        if top_colors and shoe_colors:
+            components.append(1.0 if top_colors & shoe_colors else 0.0)
+        else:
+            components.append(0.5)  # untagged → neutral
+
+    # Bottom should be a neutral
+    if bottom_layer:
+        bottom_colors = {c.lower() for c in (bottom_layer.color_tags or [])}
+        if bottom_colors:
+            components.append(1.0 if bottom_colors & _NEUTRAL_COLORS else 0.0)
+        else:
+            components.append(0.5)  # untagged → neutral
+
+    return sum(components) / len(components) if components else 0.5
+
+
 def _style_cohesion(items: list[ClothingItem]) -> float:
     style_score = _jaccard([set(i.style_tags or []) for i in items])
-    color_score = _jaccard([set(i.color_tags or []) for i in items])
-    return style_score * 0.6 + color_score * 0.4
+    sandwich_score = _color_sandwich_score(items)
+    return style_score * 0.6 + sandwich_score * 0.4
 
 
 class RuleEngine(RecommendationEngine):
